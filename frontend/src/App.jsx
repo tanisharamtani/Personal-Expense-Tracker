@@ -1,30 +1,70 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import ProtectedRoute from "./routes/ProtectedRoute.jsx";
+import { useEffect, useState } from "react";
 
-const Placeholder = ({ title }) => (
-  <main className="pet-shell">
-    <h1>{title}</h1>
-    <p>Connect this route to the UI page component when it is added.</p>
-  </main>
-);
+const categories = ["Food", "Transport", "Shopping", "Health", "Entertainment", "Bills", "Education", "Other"];
+const expenses = [
+  { id: 1, title: "Swiggy", category: "Food", amount: 250, date: "2026-06-01", notes: "Dinner order" },
+  { id: 2, title: "Uber", category: "Transport", amount: 180, date: "2026-06-02", notes: "Office ride" },
+  { id: 3, title: "Amazon", category: "Shopping", amount: 799, date: "2026-06-03", notes: "Stationery" },
+  { id: 4, title: "Electricity Bill", category: "Bills", amount: 1200, date: "2026-06-04", notes: "Monthly bill" },
+  { id: 5, title: "Netflix", category: "Entertainment", amount: 499, date: "2026-06-05", notes: "Subscription" }
+];
+const budgets = [["Food", 2250, 4000], ["Transport", 1125, 2500], ["Shopping", 2250, 3000], ["Bills", 1500, 2000], ["Entertainment", 375, 1000], ["Health", 650, 1500]];
+const categoryTotals = [["Food", 30, "#2563eb"], ["Shopping", 30, "#14b8a6"], ["Transport", 15, "#8b5cf6"], ["Bills", 20, "#f59e0b"], ["Entertainment", 5, "#ef4444"]];
+const nav = [["/dashboard", "Dashboard", "D"], ["/add-expense", "Add Expense", "+"], ["/transactions", "Transactions", "T"], ["/budget", "Budget", "B"], ["/analytics", "Analytics", "A"], ["/goals", "Goals", "G"], ["/projection", "Projection", "P"], ["/guide", "How to Use", "?"], ["/profile", "Settings", "S"]];
+
+function route() {
+  const hashPath = window.location.hash.replace("#", "");
+  const pathName = window.location.pathname;
+  return hashPath || (pathName === "/" || pathName === "/login" ? "/dashboard" : pathName);
+}
+function money(n) { return "INR " + n.toLocaleString(); }
+function goTo(path, setPath) { window.history.pushState(null, "", path); setPath(path); }
+
+function Sidebar({ active, go, logout }) {
+  return <aside className="sidebar">
+    <button className="brand" onClick={() => go("/dashboard")}><span className="brand-mark">P</span><span><b>PocketPilot</b><small>Track. Save. Grow.</small></span></button>
+    <nav>{nav.map(([path, label, icon]) => <button key={path} className={active === path ? "active" : ""} onClick={() => go(path)}><span>{icon}</span>{label}</button>)}</nav>
+    <div className="side-art"><div className="coin-stack"><i/><i/><i/></div><p>Plan today. Spend smarter tomorrow.</p></div>
+    <button className="logout" onClick={logout}>Logout</button>
+  </aside>;
+}
+
+function Card({ children, wide = false, className = "" }) { return <section className={`card ${wide ? "wide" : ""} ${className}`}>{children}</section>; }
+function Header({ title, sub, action }) { return <div className="header"><div><h1>{title}</h1>{sub && <p>{sub}</p>}</div>{action}</div>; }
+function Stat({ label, value, sub, ring }) { return <article className="stat"><div><p>{label}</p><h3>{value}</h3><small>{sub}</small></div>{ring ? <span className="ring"><b>{ring}%</b></span> : <span className="icon">up</span>}</article>; }
+function LineChart({ short = false }) { return <div className="line-chart"><svg viewBox="0 0 100 45" preserveAspectRatio="none"><defs><linearGradient id="line" x1="0" x2="1"><stop stopColor="#14b8a6"/><stop offset="1" stopColor="#2563eb"/></linearGradient></defs><polygon points="2,35 12,24 22,18 32,29 42,20 52,24 62,12 72,18 82,6 98,14 98,44 2,44" fill="#dbeafe" opacity=".72"/><polyline points="2,35 12,24 22,18 32,29 42,20 52,24 62,12 72,18 82,6 98,14" fill="none" stroke="url(#line)" strokeWidth="2.2"/></svg><div><span>1 May</span><span>{short ? "Aug" : "11 May"}</span><span>{short ? "Oct" : "21 May"}</span><span>{short ? "Dec" : "31 May"}</span></div></div>; }
+function Bars() { return <div className="bars">{[42, 54, 66, 80, 58, 91].map((h, i) => <i key={i} style={{ height: h + "%" }} />)}</div>; }
+function Donut() { return <div className="donut-row"><div className="donut"><b>INR 7,500</b><small>Total Spent</small></div><div className="legend">{categoryTotals.map(([n, p, c]) => <p key={n}><i style={{ background: c }}/>{n}<b>{p}%</b></p>)}</div></div>; }
+function Progress({ name, used, max }) { const p = Math.min(Math.round(used / max * 100), 100); const cls = p >= 100 ? "danger" : p >= 75 ? "warn" : "ok"; return <div className="progress"><p><span>{name}</span><b>{money(used)} / {money(max)}</b></p><div><i className={cls} style={{ width: p + "%" }}/></div></div>; }
+function FormInput({ label, type = "text", children, wide }) { return <label className={wide ? "form-wide" : ""}>{label}{children || <input type={type} placeholder={label}/>}</label>; }
+function ExpenseList() { return <div className="expense-list">{expenses.map(e => <div className="expense" key={e.id}><span>{e.title[0]}</span><div><b>{e.title}</b><small>{e.category}</small></div><strong>- {money(e.amount)}</strong></div>)}</div>; }
+
+function Dashboard({ go }) { return <div className="grid dash page-enter"><Card wide><Header title="Good morning, Tanisha" sub="Here is your financial overview" action={<div className="search">Search anything...</div>}/><div className="stats"><Stat label="Total Balance" value="INR 12,500" sub="Available balance"/><Stat label="Monthly Budget" value="INR 20,000" sub="Edit budget"/><Stat label="Total Spent" value="INR 7,500" sub="This month"/><Stat label="Goal Progress" value="75%" sub="On track" ring={75}/></div></Card><Card wide><Header title="Spending Trend" sub="Your spending overview for this month" action={<button className="chip">This Month</button>}/><LineChart/></Card><Card><Header title="Recent Expenses" action={<button className="link" onClick={() => go("/transactions")}>View all</button>}/><ExpenseList/></Card><Card><Header title="Category Breakdown" sub="This month"/><Donut/></Card><Card className="projection"><div><h2>Future Savings Projection</h2><p>At this rate, you will save</p><h3>INR 20,000</h3><small>by August 2026</small></div><LineChart short/></Card><button className="fab" onClick={() => go("/add-expense")}>+</button></div>; }
+function AddExpense() { return <section className="split page-enter"><Card className="form-card"><h1>Add New Expense</h1><p>Track every penny you spend</p><form className="form two"><FormInput label="Amount"><input placeholder="INR Enter amount"/></FormInput><FormInput label="Category"><select><option>Select category</option>{categories.map(c => <option key={c}>{c}</option>)}</select></FormInput><FormInput label="Date" type="date"/><FormInput label="Expense Title"/><FormInput label="Description" wide><textarea placeholder="Add a note"/></FormInput><button type="button" className="primary form-wide">Add Expense</button></form><div className="quote">Every small expense counts. Track today, thank yourself tomorrow.</div></Card><div className="visual"><span>Receipt</span></div></section>; }
+function Transactions({ go, del }) { return <Card wide className="page-enter"><Header title="Transaction History" sub="Search, filter, sort, edit, and delete expenses" action={<button className="primary" onClick={() => go("/add-expense")}>+ Add Expense</button>}/><div className="toolbar"><input placeholder="Search transactions"/><select><option>All Categories</option>{categories.map(c => <option key={c}>{c}</option>)}</select><input type="month"/><select><option>Newest First</option><option>Amount High to Low</option></select></div><div className="table"><table><thead><tr><th>Title</th><th>Category</th><th>Date</th><th>Amount</th><th>Notes</th><th>Actions</th></tr></thead><tbody>{expenses.map(e => <tr key={e.id}><td>{e.title}</td><td><span className="pill">{e.category}</span></td><td>{e.date}</td><td>{money(e.amount)}</td><td>{e.notes}</td><td><button onClick={() => go("/edit-expense")}>Edit</button><button className="danger-text" onClick={() => del(e)}>Delete</button></td></tr>)}</tbody></table></div></Card>; }
+function Budget() { return <div className="grid page-enter"><Card><h1>Budget Manager</h1><p>Set overall monthly and category-wise budgets</p><form className="form"><FormInput label="Overall Monthly Budget"><input defaultValue="20000"/></FormInput><button type="button" className="primary">Save Budget</button></form></Card><Card><h2>Budget Status</h2><p><i className="dot ok"/> Green: Within budget</p><p><i className="dot warn"/> Yellow: Near budget limit</p><p><i className="dot danger"/> Red: Budget exceeded</p></Card><Card wide><Header title="Category Budgets" action={<button className="chip">This Month</button>}/>{budgets.map(([n,u,m]) => <Progress key={n} name={n} used={u} max={m}/>)}</Card><Card wide><h2>Set Category-wise Monthly Budgets</h2><div className="category-grid">{categories.map(c => <FormInput key={c} label={c}><input placeholder="INR Budget amount"/></FormInput>)}</div></Card></div>; }
+function EditExpense({ go }) { return <Card className="form-card center page-enter"><h1>Edit Expense</h1><p>Update expense details before saving changes</p><form className="form two"><FormInput label="Expense Title"><input defaultValue="Swiggy"/></FormInput><FormInput label="Amount"><input defaultValue="250"/></FormInput><FormInput label="Category"><select defaultValue="Food">{categories.map(c => <option key={c}>{c}</option>)}</select></FormInput><FormInput label="Date"><input type="date" defaultValue="2026-06-01"/></FormInput><FormInput label="Notes" wide><textarea defaultValue="Dinner order"/></FormInput><div className="actions form-wide"><button type="button" onClick={() => go("/transactions")}>Cancel</button><button type="button" className="primary">Save Changes</button></div></form></Card>; }
+function Analytics() { return <div className="grid page-enter"><Card wide><Header title="Analytics & Reports" sub="Understand your spending better" action={<select><option>This Month</option><option>This Year</option></select>}/><div className="tabs"><button>Overview</button><button>By Category</button><button>By Date</button></div></Card><Card><h2>Monthly Spending</h2><h3>INR 7,500 <em>up 12%</em></h3><Bars/></Card><Card><h2>Category Distribution</h2><Donut/></Card><Card><h2>Top Spending Category</h2><div className="badge">Bag</div><h3>Shopping</h3><p>INR 2,250</p><small>30% of total spending</small></Card><Card><h2>Savings Trend</h2><h3>INR 12,000 <em>up 12%</em></h3><LineChart short/></Card></div>; }
+function Goals() { return <div className="grid page-enter"><Card wide><Header title="Savings Goals" sub="Stay focused and achieve your goals" action={<button className="primary">+ New Goal</button>}/><div className="goal"><span className="big-ring"><b>75%</b><small>Completed</small></span><div><h2>Monthly Savings Goal</h2><p>Target: INR 10,000</p><h3>INR 7,500 saved so far</h3><strong>INR 2,500 remaining</strong></div><div className="visual small">Goal</div></div></Card><Card wide><Header title="Future Savings Projection" action={<button className="chip">6 Months</button>}/><LineChart/></Card></div>; }
+function Projection() { return <div className="grid page-enter"><Card><h1>Future Savings Projection</h1><p>Forecast savings based on current spending habits</p><form className="form"><FormInput label="If I save monthly"><input defaultValue="5000"/></FormInput><FormInput label="Until month"><input type="month" defaultValue="2026-12"/></FormInput><button type="button" className="primary">Calculate Projection</button></form></Card><Card><h2>Prediction Summary</h2><div className="summary"><span>You will have</span><b>INR 45,000</b><small>by December 2026</small></div><div className="summary"><span>Estimated goal completion</span><b>August 2026</b><small>Based on current savings rate</small></div></Card><Card wide><h2>Savings Growth Visualization</h2><LineChart/></Card></div>; }
+function Profile() { return <div className="grid page-enter"><Card><h1>Profile & Settings</h1><p>Update profile information and account preferences</p><form className="form"><FormInput label="Full Name"><input defaultValue="Tanisha"/></FormInput><FormInput label="Email"><input defaultValue="tanisha@example.com"/></FormInput><FormInput label="Monthly Income"><input defaultValue="32500"/></FormInput><button type="button" className="primary">Update Profile</button></form></Card><Card><h2>Change Password</h2><form className="form"><FormInput label="Current Password" type="password"/><FormInput label="New Password" type="password"/><button type="button">Change Password</button></form></Card><Card wide><h2>Account Preferences</h2><label className="check"><input type="checkbox" defaultChecked/> Show over-budget warning alerts</label><label className="check"><input type="checkbox" defaultChecked/> Send savings goal reminders</label><label className="check"><input type="checkbox"/> Use compact dashboard cards</label></Card></div>; }
+function Guide() { const steps = [["Create Your Account","Sign up and set up your profile."],["Add Your Expenses","Add amount, category, date, and notes."],["Set Budgets","Create monthly and category-wise limits."],["Track Savings Goals","Set targets and monitor completion."],["Check Analytics","View charts, trends, and spending distribution."],["Use Projections","Estimate future savings by date."]]; return <Card wide className="page-enter"><Header title="How to Use PocketPilot" sub="A simple guide to help you get the most out of PET"/><div className="guide">{steps.map(([t,b],i) => <article key={t}><span>{String(i + 1).padStart(2,"0")}</span><div>{["Account","Expense","Budget","Goal","Chart","Forecast"][i]}</div><h2>{t}</h2><p>{b}</p></article>)}</div></Card>; }
+
+function AuthScreen({ onEnter }) {
+  const [mode, setMode] = useState("login");
+  const copy = { login: ["Welcome back", "Login to view your dashboard, budgets, goals, and reports.", "Login"], signup: ["Create account", "Start tracking expenses and savings with your own PET profile.", "Sign Up"], forgot: ["Reset password", "Enter your email and connect this form to the reset API later.", "Send Reset Link"] }[mode];
+  return <main className="auth page-enter"><Card className="auth-card"><div className="brand auth-logo"><span className="brand-mark">P</span><span><b>PocketPilot</b><small>Personal Expense Tracker</small></span></div><div className="auth-tabs"><button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Login</button><button className={mode === "signup" ? "active" : ""} onClick={() => setMode("signup")}>Sign Up</button></div><h1>{copy[0]}</h1><p>{copy[1]}</p><form className="form">{mode === "signup" && <FormInput label="Full Name"><input placeholder="Enter your name"/></FormInput>}<FormInput label="Email"><input type="email" placeholder="you@example.com"/></FormInput>{mode !== "forgot" && <FormInput label="Password"><input type="password" placeholder="Enter password"/></FormInput>}{mode === "signup" && <FormInput label="Monthly Budget"><input placeholder="INR 20000"/></FormInput>}<button type="button" className="primary" onClick={mode === "forgot" ? undefined : onEnter}>{copy[2]}</button>{mode === "login" && <button type="button" className="link" onClick={() => setMode("forgot")}>Forgot Password?</button>}</form></Card><section className="auth-visual"><div className="pulse-card"><span>75%</span><small>Goal progress</small></div><h2>Track. Save. Grow.</h2><p>Clean dashboards, practical budgets, savings goals, and future projections.</p></section></main>;
+}
+function Confirm({ item, close }) { return <div className="modal"><section><strong>!</strong><h2>Delete Expense?</h2><p>Are you sure you want to delete "{item.title}"? Connect this to the backend delete API later.</p><div><button onClick={close}>Cancel</button><button className="danger" onClick={close}>Delete</button></div></section></div>; }
 
 export default function App() {
-  return (
-    <Routes>
-      <Route path="/login" element={<Placeholder title="Login" />} />
-      <Route path="/signup" element={<Placeholder title="Sign Up" />} />
-      <Route path="/forgot-password" element={<Placeholder title="Forgot Password" />} />
-      <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Placeholder title="Dashboard" />} />
-        <Route path="/expenses" element={<Placeholder title="Expenses" />} />
-        <Route path="/transactions" element={<Placeholder title="Transactions" />} />
-        <Route path="/budgets" element={<Placeholder title="Budget Manager" />} />
-        <Route path="/savings-goals" element={<Placeholder title="Savings Goals" />} />
-        <Route path="/analytics" element={<Placeholder title="Analytics" />} />
-        <Route path="/settings" element={<Placeholder title="Settings" />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
-  );
+  const [path, setPath] = useState(route());
+  const [logged, setLogged] = useState(false);
+  const [deleteItem, setDeleteItem] = useState(null);
+  useEffect(() => { const h = () => setPath(route()); window.addEventListener("popstate", h); window.addEventListener("hashchange", h); if (window.location.hash) { const cleanPath = window.location.hash.replace("#", ""); window.history.replaceState(null, "", cleanPath); setPath(cleanPath); } return () => { window.removeEventListener("popstate", h); window.removeEventListener("hashchange", h); }; }, []);
+  const go = (p) => goTo(p, setPath);
+  if (!logged) return <AuthScreen onEnter={() => { setLogged(true); go("/dashboard"); }} />;
+  const pages = { "/": Dashboard, "/dashboard": Dashboard, "/add-expense": AddExpense, "/transactions": Transactions, "/budget": Budget, "/budgets": Budget, "/edit-expense": EditExpense, "/analytics": Analytics, "/goals": Goals, "/savings-goals": Goals, "/projection": Projection, "/profile": Profile, "/settings": Profile, "/guide": Guide };
+  const Page = pages[path] || Dashboard;
+  return <div className="shell"><Sidebar active={path} go={go} logout={() => setLogged(false)}/><main><Page go={go} del={setDeleteItem}/></main>{deleteItem && <Confirm item={deleteItem} close={() => setDeleteItem(null)}/>}</div>;
 }
